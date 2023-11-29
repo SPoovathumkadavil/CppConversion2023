@@ -3,17 +3,79 @@
 #include <frc/kinematics/SwerveModuleState.h>
 #include <ctre/phoenix/motorcontrol/can/WPI_TalonFX.h>
 #include <frc/motorcontrol/Talon.h>
+#include <math.h>
 #include "constants.h"
 
 using namespace units::angle;
 using namespace units::velocity;
+using namespace units::length;
 using namespace constants::swerve;
 
-frc::SwerveModuleState SwerveModule::getModuleState()
+#define TalonFXTicksPerRevolution 2048
+
+void SwerveModule::Drive(frc::SwerveModuleState initialTargetState)
+{
+    frc::SwerveModuleState targetState = OptimizeTalon(
+        initialTargetState,
+        GetModuleState().angle
+    );
+
+    SetModuleVelocity(
+        targetState.speed *
+        abs((targetState.angle - GetModuleState().angle).Cos())
+    );
+
+    SetModuleAngle(targetState.angle.Radians());
+}
+
+double SwerveModule::GetAngularVelocity()
+{
+    return (angleMotor.GetSelectedSensorVelocity() / TalonFXTicksPerRevolution * 10) * ANGLE_RATIO;
+}
+
+/// @brief Sets the angle of the module :0
+/// @param targetAngle 
+void SwerveModule::SetModuleAngle(frc::Rotation2d targetAngle)
+{
+    angleMotor.Set(
+        ctre::phoenix::motorcontrol::TalonFXControlMode::MotionMagic,
+        ((targetAngle.Radians() / ANGLE_RATIO) * TalonFXTicksPerRevolution).value()
+    );
+}
+
+/// @brief Sets the Drive Motor's Velocity
+/// @param targetVelocity 
+void SwerveModule::SetModuleVelocity(meters_per_second_t targetVelocity)
+{
+    angleMotor.Set(
+        ctre::phoenix::motorcontrol::TalonFXControlMode::Velocity, 
+        ((targetVelocity * 2 / (DRIVE_RATIO * WHEEL_DIAMETER_METERS)) * TalonFXTicksPerRevolution / 10.0).value()
+    );
+}
+
+/// @brief Get the position of a module :0
+/// @return 
+frc::SwerveModulePosition SwerveModule::GetModulePosition()
 {
     return {
-        meters_per_second_t{driveMotor.GetSelectedSensorVelocity() / 2048 * 10 * DRIVE_RATIO * WHEEL_DIAMETER_METERS / 2},
-        frc::Rotation2d(radian_t{angleMotor.GetSelectedSensorPosition() / 2048 * ANGLE_RATIO})
+        meter_t{
+            driveMotor.GetSelectedSensorPosition() / TalonFXTicksPerRevolution / 
+            (2 * M_PI) *
+            DRIVE_RATIO *
+            WHEEL_DIAMETER_METERS *
+            M_PI
+        },
+        GetModuleState().angle
+    };
+}
+
+/// @brief Get the state of the module :0
+/// @return 
+frc::SwerveModuleState SwerveModule::GetModuleState()
+{
+    return {
+        meters_per_second_t{driveMotor.GetSelectedSensorVelocity() / TalonFXTicksPerRevolution * 10 * DRIVE_RATIO * WHEEL_DIAMETER_METERS / 2},
+        frc::Rotation2d(radian_t{angleMotor.GetSelectedSensorPosition() / TalonFXTicksPerRevolution * ANGLE_RATIO})
     };
 }
 
@@ -24,7 +86,7 @@ frc::SwerveModuleState SwerveModule::getModuleState()
 /// @param targetVelocity
 /// @param currentAngle
 /// @return
-frc::SwerveModuleState SwerveModule::adjustTargetAngleAndSpeed(frc::Rotation2d targetAngle, meters_per_second_t targetVelocity, frc::Rotation2d currentAngle)
+frc::SwerveModuleState SwerveModule::AdjustTargetAngleAndSpeed(frc::Rotation2d targetAngle, meters_per_second_t targetVelocity, frc::Rotation2d currentAngle)
 {
     units::angle::degree_t delta = targetAngle.Degrees() - currentAngle.Degrees();
     if (abs(delta.value()) > 90)
@@ -39,7 +101,7 @@ frc::SwerveModuleState SwerveModule::adjustTargetAngleAndSpeed(frc::Rotation2d t
 /// @param scopeReference
 /// @param newAngle
 /// @return
-degree_t SwerveModule::placeInAppropriate0To360Scope(degree_t scopeReference, degree_t newAngle)
+degree_t SwerveModule::PlaceInAppropriate0To360Scope(degree_t scopeReference, degree_t newAngle)
 {
     auto delta = newAngle - scopeReference;
     delta += 180_deg;                           // shift range to [0, 360]
@@ -56,9 +118,9 @@ degree_t SwerveModule::placeInAppropriate0To360Scope(degree_t scopeReference, de
 /// @param desiredState
 /// @param currentAngle
 /// @return
-frc::SwerveModuleState SwerveModule::optimizeTalon(frc::SwerveModuleState desiredState, frc::Rotation2d currentAngle)
+frc::SwerveModuleState SwerveModule::OptimizeTalon(frc::SwerveModuleState desiredState, frc::Rotation2d currentAngle)
 {
-    degree_t targetAngle = placeInAppropriate0To360Scope(degree_t{currentAngle.Degrees()}, degree_t{desiredState.angle.Degrees()});
+    degree_t targetAngle = PlaceInAppropriate0To360Scope(degree_t{currentAngle.Degrees()}, degree_t{desiredState.angle.Degrees()});
     meters_per_second_t targetSpeed = desiredState.speed;
-    return adjustTargetAngleAndSpeed(targetAngle, targetSpeed, currentAngle.Degrees());
+    return AdjustTargetAngleAndSpeed(targetAngle, targetSpeed, currentAngle.Degrees());
 }

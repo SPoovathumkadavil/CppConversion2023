@@ -36,7 +36,7 @@ public:
 class SwerveModule
 {
 public:
-    SwerveModule(SwerveModuleConfig config) : driveMotor(config.driveId), angleMotor(config.angleId)
+    SwerveModule(SwerveModuleConfig config) : driveMotor(config.driveId), angleMotor(config.angleId), translationToCenter(config.translationToCenter)
     {
         driveMotor.Config_kP(0, config.dkp);
         driveMotor.Config_kI(0, config.dki);
@@ -46,16 +46,22 @@ public:
         angleMotor.Config_kD(0, config.akd);
         angleMotor.SetInverted(config.angleInvert);
     }
-    void drive(frc::SwerveModuleState state);
-    frc::SwerveModuleState getModuleState();
-    frc::SwerveModulePosition getModulePosition();
-    void setModuleAngle(frc::Rotation2d targetAngle);
-    void setModuleVelocity(units::velocity::meters_per_second_t targetVelocity);
-    frc::SwerveModuleState optimizeTalon(frc::SwerveModuleState desiredState, frc::Rotation2d currentAngle);
+    void Drive(frc::SwerveModuleState state);
+    frc::SwerveModuleState GetModuleState();
+    frc::SwerveModulePosition GetModulePosition();
+    void SetModuleAngle(frc::Rotation2d targetAngle);
+    void SetModuleVelocity(units::velocity::meters_per_second_t targetVelocity);
+
+    frc::Translation2d GetTranslationFromCenter() { return translationToCenter; };
+
+    double GetAngularVelocity();
 
 private:
-    frc::SwerveModuleState adjustTargetAngleAndSpeed(frc::Rotation2d targetAngle, units::velocity::meters_per_second_t targetVelocity, frc::Rotation2d currentAngle);
-    units::angle::degree_t placeInAppropriate0To360Scope(units::angle::degree_t scopeReference, units::angle::degree_t newAngle);
+    frc::SwerveModuleState AdjustTargetAngleAndSpeed(frc::Rotation2d targetAngle, units::velocity::meters_per_second_t targetVelocity, frc::Rotation2d currentAngle);
+    units::angle::degree_t PlaceInAppropriate0To360Scope(units::angle::degree_t scopeReference, units::angle::degree_t newAngle);
+    frc::SwerveModuleState OptimizeTalon(frc::SwerveModuleState desiredState, frc::Rotation2d currentAngle);
+
+    frc::Translation2d translationToCenter;
 
     WPI_TalonFX driveMotor;
     WPI_TalonFX angleMotor;
