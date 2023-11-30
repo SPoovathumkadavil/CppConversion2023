@@ -12,7 +12,7 @@ public:
     virtual void SetOutput(double output);
     virtual double GetOutput();
     virtual EncodedMotorController *SetCurrentLimit(int currentLinit);
-    virtual EncodedMotorController *SetPid(double p, double i, double d);
+    virtual EncodedMotorController *SetPID(double p, double i, double d);
 	virtual EncodedMotorController *SetMinAngle(double minAngle);
 	virtual EncodedMotorController *SetMaxAngle(double maxAngle);
 	virtual EncodedMotorController *SetMinOutput(double minOutput);
